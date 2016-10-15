@@ -1,20 +1,26 @@
-
+//
+// Created by sherif on 14/10/16.
+//
 #include <stdbool.h>
 #include <string.h>
 #include <bits/string2.h>
 #include "history.h"
 
 FILE *file;
-char my_history[10][85] = {"", "", "", "", "", "", "", "", "", ""};
 int front = 0;
 const int MAX_SIZE = 10;
-int elements = 0;
+int items = 0;
+char my_history[10][85] = {"", "", "", "", "", "", "", "", "", ""};
 
 bool is_empty_line(const char *command);
 
 void add(const char *command);
 
 void save_in_file();
+
+void make_space(const char *command);
+
+void handle_new_line(char *command);
 
 void load_history() {
     file = fopen("history.txt", "r");
@@ -34,12 +40,16 @@ void insert(char *command, int can_rewrite) {
     if (strlen(command) == 0) {
         return;
     }
-    if (command[strlen(command) - 1] == '\n') {
-        command[strlen(command) - 1] = NULL;
-    }
+    handle_new_line(command);
     add(command);
     if (can_rewrite) {
         save_in_file();
+    }
+}
+
+void handle_new_line(char *command) {
+    if (command[strlen(command) - 1] == '\n') {
+        command[strlen(command) - 1] = NULL;
     }
 }
 
@@ -54,14 +64,18 @@ void save_in_file() {
 
 void add(const char *command) {
     if (front == MAX_SIZE) {
-        for (int i = 0; i < MAX_SIZE - 1; i++) {
-            strcpy(my_history[i], my_history[i + 1]);
-        }
-        strcpy(my_history[MAX_SIZE - 1], command);
+        make_space(command);
     } else {
         strcpy(my_history[front++], command);
-        elements++;
+        items++;
     }
+}
+
+void make_space(const char *command) {
+    for (int i = 0; i < MAX_SIZE - 1; i++) {
+        strcpy(my_history[i], my_history[i + 1]);
+    }
+    strcpy(my_history[MAX_SIZE - 1], command);
 }
 
 void print() {
@@ -75,9 +89,9 @@ char *get_command(int index) {
 }
 
 int isEmpty() {
-    return elements == 0;
+    return items == 0;
 }
 
 int size() {
-    return elements;
+    return items;
 }

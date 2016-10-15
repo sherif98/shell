@@ -1,24 +1,21 @@
-/////////////////////////////////////////////
-
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <wait.h>
-#include <sys/stat.h>
 #include <stdbool.h>
 #include "history.h"
 #include "string_utilities.h"
 
-#define MAX_LINE 2000
+#define MAX_LENGTH 2000
 int pathLength = 0;
 char currentLine[1024];
 char aux[1024];
 int dont_wait = 0;
-char *path[MAX_LINE + 1];
+char *path[MAX_LENGTH + 1];
 
 
-void loadPath(char *pString[]);
+void find_paths(char **pString);
 
 void execute(char *args[81]);
 
@@ -29,14 +26,14 @@ void setupSignal();
 
 void initialSetups();
 
-void executeInputFile(char *fileName);
+void execute_file(char *fileName);
 
 void readLine();
 
 bool empty_line();
 
 
-void parse();
+void handle_input();
 
 bool isHistory(char *const *args);
 
@@ -56,7 +53,7 @@ void exit_if_empty_line(char *res);
 int main(int argc, char **argv) {
     initialSetups();
     if (argc == 2) {
-        executeInputFile(argv[1]);
+        execute_file(argv[1]);
         return 0;
     } else if (argc > 2) {
         printf("Illegal Arguments\n");
@@ -69,20 +66,20 @@ int main(int argc, char **argv) {
         if (empty_line()) {
             continue;
         }
-        parse();
+        handle_input();
     }
 }
 
 bool empty_line() { return strlen(currentLine) == 0; }
 
 void readLine() {
-    gets(currentLine);
+    if (!gets(currentLine)) { exit(0); }
     trim(currentLine);
 }
 
 void initialSetups() {
     signal(SIGCHLD, setupSignal);
-    loadPath(path);
+    find_paths(path);
     load_history();
 }
 
@@ -93,7 +90,7 @@ void setupSignal() {
     }
 }
 
-void executeInputFile(char *fileName) {//TODO
+void execute_file(char *fileName) {
     char *inp = NULL;
     FILE *f;
     size_t len = 0;
@@ -106,7 +103,7 @@ void executeInputFile(char *fileName) {//TODO
             trim(inp);
             strcpy(currentLine, inp);
             printf("%s\n", inp);
-            parse();
+            handle_input();
         }
         fclose(f);
     } else {
@@ -114,12 +111,10 @@ void executeInputFile(char *fileName) {//TODO
     }
 }
 
-void parse() {
+void handle_input() {
     char *args[85];
     get_argument(args, aux, &dont_wait, currentLine);
-    if (isHistory(args)) {
-        handleHistory();
-    } else if (args[0][0] == '!') {
+    if (args[0][0] == '!') {
         dont_wait = 0;
         if (isit_execute_last_History_command(args)) {
             if (isEmpty()) {
@@ -135,6 +130,8 @@ void parse() {
                 excute_history_command(args, idx - 1);
             }
         }
+    } else if (isHistory(args)) {
+        handleHistory();
     } else {
         insert(currentLine, 1);
         execute(args);
@@ -143,7 +140,7 @@ void parse() {
 
 bool get_number_of_history_command(char *args[], int *idx) {
     int error = 0;
-    printf("%d", args[0][2]);
+//    printf("%d", args[0][2]);
     int number = 0;
     if (args[0][1] == '1' && args[0][2] == '0') {
         number = 10;
@@ -164,8 +161,8 @@ bool get_number_of_history_command(char *args[], int *idx) {
 }
 
 void excute_history_command(char *args[], int n) {
-    char *command = get_command(n);
-    strcpy(currentLine, command);
+    char *cmd = get_command(n);
+    strcpy(currentLine, cmd);
     puts(currentLine);
     get_argument(args, aux, &dont_wait, currentLine);
     execute(args);
@@ -195,6 +192,7 @@ void execute(char *args[81]) {
     }
     if (pid == 0) {
         exit_if_empty_line(command_to_execute);
+        trim(command_to_execute);
         int execv_return_value = execv(command_to_execute, args);
         printf("failed to execute return value: %d\n", execv_return_value);
         exit(0);
@@ -212,6 +210,12 @@ void exit_if_empty_line(char *res) {
 }
 
 bool check_before_execution(char *args[]) {
+    if (strlen(currentLine) == 0) {
+        return true;
+    }
+    if (strcmp(currentLine, "") == 0) {
+        return true;
+    }
     if (strlen(currentLine) > 80) {
         printf("larger than 80 char command\n");
         return true;
@@ -222,6 +226,10 @@ bool check_before_execution(char *args[]) {
     }
     if (strcmp(args[0], "exit") == 0) {
         exit(0);
+    }
+
+    if (strcmp(currentLine, "\n") == 0) {
+        return true;
     }
     return false;
 }
@@ -235,18 +243,18 @@ void history() {
     print();
 }
 
-void loadPath(char *pString[]) {
+void find_paths(char **pString) {
     char *path = getenv("PATH");
-    char seps[] = ":";
-    int argsLen = 0;
-    char *token;
-    token = strtok(path, seps);
-    while (token != NULL) {
-        pString[argsLen] = token;
-        token = strtok(NULL, seps);
-        argsLen++;
+    char delim[] = ":";
+    int len = 0;
+    char *tmp;
+    tmp = strtok(path, delim);
+    while (tmp != NULL) {
+        pString[len] = tmp;
+        tmp = strtok(NULL, delim);
+        len++;
     }
-    pString[argsLen] = NULL;
-    argsLen++;
-    pathLength = argsLen;
+    pString[len] = NULL;
+    len++;
+    pathLength = len;
 }
