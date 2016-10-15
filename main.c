@@ -184,7 +184,10 @@ void execute(char *args[81]) {
         return;
     }
     char command_to_execute[1024];
-    add_command_topath(args[0], command_to_execute, path, &pathLength);
+    int z = add_command_topath(args[0], command_to_execute, path, &pathLength);
+    if (z == -1) {
+        return;
+    }
     pid_t pid;
     pid = fork();
     if (pid < 0) {

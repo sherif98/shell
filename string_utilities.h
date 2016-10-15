@@ -18,6 +18,6 @@ void trim(char *line);
 
 void get_argument(char **args, char *tmp, int *needwait, char *currnent_line);
 
-void add_command_topath(char *command, char *res, char *path[], int *pathLength);
+int add_command_topath(char *command, char *res, char *path[], int *pathLength);
 
 #endif //SHELL_STRING_UTILITIES_H

@@ -14,17 +14,18 @@ char *append(const char *command, char *res, char *const *path, int i);
 
 int handle_if_empty(char *args[], int arg_length);
 
-void add_command_topath(char *command, char *res, char *path[], int *pathLength) {
+int add_command_topath(char *command, char *res, char *path[], int *pathLength) {
     if (can_access(command, res)) {
-        return;
+        return 0;
     }
     for (int i = 0; i < *pathLength; ++i) {
         res = append(command, res, path, i);
         if (access(res, F_OK) == 0) {
-            return;
+            return 0;
         }
     }
     strcpy(res, "");
+    return -1;
 }
 
 char *append(const char *command, char *res, char *const *path, int i) {
