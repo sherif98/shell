@@ -8,10 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-void insertIntoHistory(char command[],int mode);
-void printAllHistory();
-char * getCommandFromHistory(int index);
+void insert(char *command, int can_rewrite);
+void print();
+char * get_command(int index);
 int isEmpty();
-int getSize();
-void loadHistory();
+int size();
+void load_history();
 #endif //SHELL_HISTORY_H

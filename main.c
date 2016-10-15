@@ -24,7 +24,7 @@ void execute(char *args[81]);
 
 void history();
 
-void setupSignal(int x);
+void setupSignal();
 
 
 void initialSetups();
@@ -33,7 +33,7 @@ void executeInputFile(char *fileName);
 
 void readLine();
 
-bool validInutLine();
+bool empty_line();
 
 
 void parse();
@@ -47,7 +47,11 @@ bool isit_execute_last_History_command(char *const *args);
 void excute_history_command(char *args[], int n);
 
 
-bool get_number_of_history_command(char *const *args, int *operations) ;
+bool get_number_of_history_command(char *args[], int *operations);
+
+bool check_before_execution(char *args[]);
+
+void exit_if_empty_line(char *res);
 
 int main(int argc, char **argv) {
     initialSetups();
@@ -62,14 +66,14 @@ int main(int argc, char **argv) {
     while (true) {
         printf("shell>");
         readLine();
-        if (validInutLine()) {
+        if (empty_line()) {
             continue;
         }
         parse();
     }
 }
 
-bool validInutLine() { return strlen(currentLine) == 0; }
+bool empty_line() { return strlen(currentLine) == 0; }
 
 void readLine() {
     gets(currentLine);
@@ -79,40 +83,39 @@ void readLine() {
 void initialSetups() {
     signal(SIGCHLD, setupSignal);
     loadPath(path);
-    loadHistory();
+    load_history();
 }
 
-void setupSignal(int sig) {
+void setupSignal() {
     pid_t pid;
     while (pid = waitpid(-1, NULL, 0) > 0) {
         sleep(0.1);
     }
 }
 
-void executeInputFile(char *fileName) {
-    char *command = NULL;
-    FILE *file;
+void executeInputFile(char *fileName) {//TODO
+    char *inp = NULL;
+    FILE *f;
     size_t len = 0;
-    file = fopen(fileName, "r");
-    int c = 0;
-    if (file) {
-        while (getline(&command, &len, file) != -1) {
-            trim(command);
-            if (strlen(command) == 0) {
+    f = fopen(fileName, "r");
+    if (f) {
+        while (getline(&inp, &len, f) != -1) {
+            if (strlen(inp) == 0) {
                 continue;
             }
-            printf("%s\n", command);
-            strcpy(currentLine, command);
+            trim(inp);
+            strcpy(currentLine, inp);
+            printf("%s\n", inp);
             parse();
         }
-        fclose(file);
+        fclose(f);
     } else {
-        printf("File doesn't exist!");
+        printf("No File exists");
     }
 }
 
 void parse() {
-    char *args[81];
+    char *args[85];
     get_argument(args, aux, &dont_wait, currentLine);
     if (isHistory(args)) {
         handleHistory();
@@ -122,40 +125,46 @@ void parse() {
             if (isEmpty()) {
                 printf("index out of bounds\n");
             } else {
-                excute_history_command(args, getSize() - 1);
+                excute_history_command(args, size() - 1);
             }
         } else {
-            int operations = 0;
-            if (get_number_of_history_command(args, &operations)) {
+            int idx = 0;
+            if (get_number_of_history_command(args, &idx)) {
                 printf("index out of bounds\n");
             } else {
-                excute_history_command(args, operations - 1);
+                excute_history_command(args, idx - 1);
             }
         }
     } else {
-        insertIntoHistory(currentLine, 1);
+        insert(currentLine, 1);
         execute(args);
     }
 }
 
-bool get_number_of_history_command(char *const *args, int *operations) {
+bool get_number_of_history_command(char *args[], int *idx) {
     int error = 0;
-    for (int i = 1; i < strlen(args[0]); i++) {
-        if (args[0][i] >= '0' && args[0][i] <= '9') {
-            (*operations) = (*operations) * 10 + args[0][i] - '0';
-        } else {
-            error = 1;
-            break;
-        }
+    printf("%d", args[0][2]);
+    int number = 0;
+    if (args[0][1] == '1' && args[0][2] == '0') {
+        number = 10;
     }
-    if (args[1] != NULL || (*operations) > getSize()) {
+    if (args[0][1] > '1' && args[0][1] <= '9') {
+        number = args[0][1] - '0';
+
+    } else if (args[0][1] == '1' && args[0][2] == 0) {
+        number = 1;
+    } else {
+        error = 1;
+    }
+    (*idx) = number;
+    if (args[1] != NULL || (*idx) > size()) {
         error = 1;
     }
     return error == 1;
 }
 
 void excute_history_command(char *args[], int n) {
-    char *command = getCommandFromHistory(n);
+    char *command = get_command(n);
     strcpy(currentLine, command);
     puts(currentLine);
     get_argument(args, aux, &dont_wait, currentLine);
@@ -168,36 +177,27 @@ bool isit_execute_last_History_command(char *const *args) {
 
 void handleHistory() {
     history();
-    insertIntoHistory(currentLine, 1);
+    insert(currentLine, 1);
 }
 
 bool isHistory(char *const *args) { return strcmp(args[0], "history") == 0 && args[1] == NULL; }
 
 void execute(char *args[81]) {
-    if (strlen(currentLine) > 80) {
-        printf("Error, too long command\n");
+    if (check_before_execution(args)) {
         return;
     }
-    if (strcmp(args[0], "exit") == 0) {
-        exit(0);
-    }
-    if (strcmp(args[0], "history") == 0 && args[1] == NULL) {
-        history();
-        return;
-    }
-    char res[1024];
-    add_command_topath(args[0], res, path, &pathLength);
+    char command_to_execute[1024];
+    add_command_topath(args[0], command_to_execute, path, &pathLength);
     pid_t pid;
     pid = fork();
-    if (pid == 0) {
-        if (strcmp(res, "") == 0) {
-            exit(0);
-        }
-        int ret_val = execv(res, args);
-        printf("failed to execute command, exist value: %d\n", ret_val);
-        exit(0);
-    } else if (pid < 0) {
+    if (pid < 0) {
         return;
+    }
+    if (pid == 0) {
+        exit_if_empty_line(command_to_execute);
+        int execv_return_value = execv(command_to_execute, args);
+        printf("failed to execute return value: %d\n", execv_return_value);
+        exit(0);
     } else {
         if (!dont_wait) {
             waitpid(pid, 1, 0);
@@ -205,12 +205,34 @@ void execute(char *args[81]) {
     }
 }
 
+void exit_if_empty_line(char *res) {
+    if (strcmp(res, "") == 0) {
+        exit(0);
+    }
+}
+
+bool check_before_execution(char *args[]) {
+    if (strlen(currentLine) > 80) {
+        printf("larger than 80 char command\n");
+        return true;
+    }
+    if (strcmp(args[0], "history") == 0 && args[1] == NULL) {
+        history();
+        return true;
+    }
+    if (strcmp(args[0], "exit") == 0) {
+        exit(0);
+    }
+    return false;
+}
+
+
 void history() {
     if (isEmpty()) {
         printf("No History!\n");
         return;
     }
-    printAllHistory();
+    print();
 }
 
 void loadPath(char *pString[]) {

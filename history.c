@@ -1,68 +1,83 @@
 
+#include <stdbool.h>
+#include <string.h>
+#include <bits/string2.h>
 #include "history.h"
-FILE *fp;
-char list[10][81] = { "", "", "", "", "", "", "", "", "", "" };
-int first = 0;
-int capacity = 10;
-int start = 0;
+
+FILE *file;
+char my_history[10][85] = {"", "", "", "", "", "", "", "", "", ""};
+int front = 0;
+const int MAX_SIZE = 10;
 int elements = 0;
 
-void insertIntoHistory(char command[] ,int mode) {
-    int len = strlen(command);
-    if(len == 0)return;
-    if(command[len-1] == '\n'){
-        command[len-1] = NULL;
+bool is_empty_line(const char *command);
+
+void add(const char *command);
+
+void save_in_file();
+
+void load_history() {
+    file = fopen("history.txt", "r");
+    char *command = NULL;
+    size_t x = 0;
+    ssize_t read;
+    while ((read = getline(&command, &x, file)) != -1) {
+        if (is_empty_line(command))continue;
+        insert(command, 0);
     }
-    if(first == capacity){
-        for(int i = 0 ; i < capacity-1 ; i++){
-            strcpy(list[i],list[i+1]);
+    fclose(file);
+}
+
+bool is_empty_line(const char *command) { return strlen(command) == 0 || strcmp(command, "\n") == 0; }
+
+void insert(char *command, int can_rewrite) {
+    if (strlen(command) == 0) {
+        return;
+    }
+    if (command[strlen(command) - 1] == '\n') {
+        command[strlen(command) - 1] = NULL;
+    }
+    add(command);
+    if (can_rewrite) {
+        save_in_file();
+    }
+}
+
+void save_in_file() {
+    file = fopen("history.txt", "w");
+    for (int i = 0; i < size(); i++) {
+        fputs(my_history[i], file);
+        fputs("\n", file);
+    }
+    fclose(file);
+}
+
+void add(const char *command) {
+    if (front == MAX_SIZE) {
+        for (int i = 0; i < MAX_SIZE - 1; i++) {
+            strcpy(my_history[i], my_history[i + 1]);
         }
-        strcpy(list[capacity-1],command);
-    }
-    else{
-        strcpy(list[first++], command);
+        strcpy(my_history[MAX_SIZE - 1], command);
+    } else {
+        strcpy(my_history[front++], command);
         elements++;
     }
-    if(mode){
-        fp = fopen("history.txt","w");
-        for(int i = 0 ; i < elements ; i++){
-            fputs(list[i],fp);
-            fputs("\n",fp);
-        }
-        fclose(fp);
+}
+
+void print() {
+    for (int i = 0; i < size(); i++) {
+        printf("%d- %s\n", i + 1, my_history[i]);
     }
 }
 
-void printAllHistory() {
-    int current = 0;
-    int cnt = 1;
-    do {
-        printf("%d. %s\n", cnt, list[current]);
-        current++;
-        cnt++;
-    } while ((strcmp(list[current], "") != 0) && current != first);
-}
-
-char * getCommandFromHistory(int index) {
-    return list[index];
+char *get_command(int index) {
+    return my_history[index];
 }
 
 int isEmpty() {
     return elements == 0;
 }
 
-int getSize(){
+int size() {
     return elements;
-}
-
-void loadHistory(){
-    fp = fopen("history.txt","r");
-    char * command = NULL;
-    size_t len = 0;
-    ssize_t read;
-    while ((read = getline(&command, &len, fp)) != -1) {
-        if(strlen(command) == 0 || strcmp(command,"\n") == 0)continue;
-        insertIntoHistory(command,0);
-    }
-    fclose(fp);
 }

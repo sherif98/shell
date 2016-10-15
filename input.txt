@@ -5,7 +5,7 @@ ls -a -l
 
         /bin/ls       -l
           vim
-          gedit&
+          gedit &
     ps
 
 bin/ps
@@ -25,9 +25,3 @@ echo z
             history
     !!
 !3
-
-
-
-
-
-
